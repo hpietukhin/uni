@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Florence-2: Advancing a Unified Representation for a Variety of Vision Tasks</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/theme/white.css">
+    
+    <!-- KaTeX CSS for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            
+            <!-- Slide 1: Titulný slajd -->
+            <section>
+    <h3>Florence-2: Advancing a Unified Representation for a Variety of Vision Tasks</h3>
+                <p>Microsoft Research, 2024</p>
+                <p><small>Bin Xiao, Haiping Wu, Weijian Xu a kol.</small></p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/teaser_v3.pdf" data-preview-link>Úvodný prehľad Florence-2 modelu</a></p>
+            </section>
+
+            <!-- Slide 2: Úvodná otázka -->
+            <section>
+                <h2>Úvodná otázka</h2>
+                <p>Čo keby existoval model, ktorý dokáže:</p>
+                <ul>
+                    <li>Detegovať objekty</li>
+                    <li>Segmentovať objekty</li>
+                    <li>Popisovať obrázky</li>
+                    <li>Rozpoznávať text (OCR)</li>
+                </ul>
+                <p><strong>Bez akéhokoľvek špecifického tréningu?</strong></p>
+            </section>
+
+            <!-- Slide 6: Časť 1 - Pozadie -->
+            <section>
+                <h1>Časť 1</h1>
+                <h2>Rozdrobený svet počítačového videnia</h2>
+            </section>
+
+            <!-- Slide 7: Dve osi komplexity -->
+            <section>
+                <h2>Dve osi komplexity</h2>
+                <p>Pre univerzálne videnie potrebujeme:</p>
+                <ol>
+                    <li><strong>Priestorovú hierarchiu</strong> (Spatial hierarchy)
+                        <ul>
+                            <li>Od celého obrázka po jednotlivé pixely</li>
+                        </ul>
+                    </li>
+                    <li><strong>Sémantickú granularitu</strong> (Semantic granularity)
+                        <ul>
+                            <li>Od jednoduchých po detailné popisy</li>
+                        </ul>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Slide 8: Úroveň obrázka -->
+            <section>
+                <h2>Úroveň 1: Úroveň obrázka</h2>
+                <p><strong>Image-level understanding</strong></p>
+                <ul>
+                    <li>Pochopenie celkovej scény</li>
+                    <li>Klasifikácia: "Je to mačka alebo pes?"</li>
+                    <li>Popisovanie: "Žena na bicykli ide po ulici"</li>
+                </ul>
+                <p><strong>Príklad modelu:</strong> CLIP</p>
+            </section>
+
+            <!-- Slide 9: Úroveň regiónov -->
+            <section>
+                <h2>Úroveň 2: Úroveň regiónov</h2>
+                <p><strong>Region-level recognition</strong></p>
+                <ul>
+                    <li>Lokalizácia objektov</li>
+                    <li>Detekcia objektov (Object Detection)</li>
+                    <li>Výstup: <strong>Bounding Box</strong></li>
+                </ul>
+                <p><strong>Bounding Box:</strong> obdĺžnik definovaný súradnicami</p>
+                <p>Príklad: (x₁, y₁, x₂, y₂) = (100, 150, 400, 450)</p>
+            </section>
+
+            <!-- Slide 10: Úroveň pixelov -->
+            <section>
+                <h2>Úroveň 3: Úroveň pixelov</h2>
+                <p><strong>Pixel-level recognition</strong></p>
+                <ul>
+                    <li>Najdetailnejšia úroveň</li>
+                    <li>Segmentácia (Segmentation)</li>
+                    <li>Výstup: <strong>Segmentačná maska</strong></li>
+                </ul>
+                <p><strong>Segmentačná maska:</strong> mapa pixelov patriacich objektu</p>
+                <ul>
+                    <li><strong>Sémantická segmentácia:</strong> všetky autá = rovnaká farba</li>
+                    <li><strong>Inštančná segmentácia:</strong> každé auto = iná farba</li>
+                </ul>
+            </section>
+
+            <!-- Slide 11: Tri prístupy k tréningu -->
+            <section>
+                <h2>Tri prístupy k tréningu</h2>
+                <ol>
+                    <li><strong>Supervised (s učiteľom)</strong>
+                        <ul>
+                            <li>Presné ručné anotácie</li>
+                            <li>Drahé, neflexibilné</li>
+                        </ul>
+                    </li>
+                    <li><strong>Self-supervised (samoučiaci)</strong>
+                        <ul>
+                            <li>Učenie bez explicitných značiek</li>
+                            <li>Škálovateľné, zložité nastaviť</li>
+                        </ul>
+                    </li>
+                    <li><strong>Weakly-supervised (slabý dohľad)</strong>
+                        <ul>
+                            <li>Príklad: CLIP (400M obrázok-text párov)</li>
+                            <li>Plytké pochopenie, zlá lokalizácia</li>
+                        </ul>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Slide 12: Problém fragmentácie -->
+            <section>
+                <h2>Problém fragmentácie</h2>
+                <p>Každá úloha vyžadovala:</p>
+                <ul>
+                    <li>Vlastnú architektúru</li>
+                    <li>Vlastnú chybovú funkciu (loss function)</li>
+                    <li>Vlastný výstupný formát</li>
+                    <li>Vlastný tréningový proces</li>
+                </ul>
+                <p><strong>Florence-2 toto všetko zjednotil</strong></p>
+            </section>
+
+            <!-- Slide 13: Časť 2 - Kľúčová inovácia -->
+            <section>
+                <h1>Časť 2</h1>
+                <h2>Ako Florence-2 mení videnie na jazyk</h2>
+            </section>
+
+            <!-- Slide 14: Hlavná myšlienka -->
+            <section>
+                <h2>Hlavná myšlienka</h2>
+                <p><strong>Čo keby sme s obrázkami pracovali ako s textom?</strong></p>
+                <p>Čo keby bola detekcia, segmentácia a popisovanie len <strong>generovaním správnej sekvencie slov?</strong></p>
+            </section>
+
+            <!-- Slide 15: Architektúra Encoder-Decoder -->
+            <section>
+                <h2>Architektúra: Encoder-Decoder</h2>
+                <ul>
+                    <li><strong>Enkóder:</strong> "prečíta" a pochopí vstup
+                        <ul>
+                            <li>Obrázok + textový príkaz</li>
+                        </ul>
+                    </li>
+                    <li><strong>Dekóder:</strong> vygeneruje výstup
+                        <ul>
+                            <li>Odpoveď na príkaz</li>
+                        </ul>
+                    </li>
+                </ul>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/model_pipeline.pdf" data-preview-link>Architektúra Florence-2 modelu</a></p>
+            </section>
+
+            <!-- Slide 15a: Detailná architektúra -->
+            <section>
+                <h2>Detailná architektúra Florence-2</h2>
+                <p><strong>Vision Encoder (DaViT):</strong></p>
+                <ul>
+                    <li>Transformer-based pre spracovanie obrázkov</li>
+                    <li>Obrázok → vizuálne tokeny</li>
+                    <li>384×384 → 768×768 (high-res fine-tuning)</li>
+                </ul>
+                
+                <p><strong>Multi-modal Encoder-Decoder:</strong></p>
+                <ul>
+                    <li>BART-style transformer</li>
+                    <li>Spojenie vizuálnych + textových tokenov</li>
+                    <li>Cross-entropy loss pre všetky úlohy</li>
+                </ul>
+                
+                <p><strong>Kľúčová inovácia:</strong> Lokačné tokeny vo vocabulary!</p>
+            </section>
+
+            <!-- Slide 16: Patch-based processing -->
+            <section>
+                <h2>Ako enkóder "číta" obrázok?</h2>
+                <p><strong>Patch-based processing</strong></p>
+                <ol>
+                    <li>Obrázok sa rozdelí na malé štvorčeky (patches)</li>
+                    <li>Každý patch = jedno "slovo"</li>
+                    <li>Používa Vision Transformer (ViT)</li>
+                </ol>
+                <p>Florence-2 používa <strong>DaViT</strong> (Dual Attention Vision Transformer)</p>
+            </section>
+
+            <!-- Slide 17: Tokenizácia -->
+            <section>
+                <h2>Tokenizácia</h2>
+                <p><strong>Tokenizácia:</strong> premena vstupu na jednotný formát</p>
+                <ul>
+                    <li>Slová → tokeny</li>
+                    <li>Vizuálne patche → tokeny</li>
+                    <li>??? Súradnice ??? → tokeny</li>
+                </ul>
+                <p><strong>Token:</strong> základná jednotka informácie</p>
+            </section>
+
+            <!-- Slide 18: Prelomová inovácia - Lokačné tokeny -->
+            <section>
+                <h3>Lokačné tokeny</h3>
+                <p><strong>Myšlienka:</strong> Ak máme tokeny pre slová, prečo nie pre koordináty?</p>
+                <ul>
+                    <li>Slovník: "mačka", "auto", "&lt;pad&gt;", "&lt;unk&gt;"</li>
+                    <li><strong>+ špeciálne tokeny pre súradnice</strong></li>
+                    <li>&lt;loc_0_0&gt;, &lt;loc_100_150&gt;, &lt;loc_512_512&gt;, ...</li>
+                </ul>
+            </section>
+
+            <!-- Slide 20: Príklad Bounding Box -->
+            <section>
+                <h2>Príklad: Bounding Box</h2>
+                <p><strong>Tradičný spôsob:</strong></p>
+                <p>Bounding Box = (100, 150, 400, 450)</p>
+                <p><strong>Florence-2:</strong></p>
+                <p>Bounding Box = &lt;loc_100&gt;&lt;loc_150&gt;&lt;loc_400&gt;&lt;loc_450&gt;</p>
+                <p>Polygón pre segmentáciu = dlhšia sekvencia lokačných tokenov</p>
+            </section>
+
+            <!-- Slide 21: Embedding -->
+            <section>
+                <h2>Embedding</h2>
+                <p><strong>Embedding:</strong> premena tokenu na číselný vektor</p>
+                <ul>
+                    <li>Každý token → vektor čísel</li>
+                    <li>Neurónová sieť rozumie vektorom</li>
+                    <li>Vizuálne, textové, lokačné tokeny → všetko rovnaký formát</li>
+                </ul>
+                <p>Všetky vektory sa spoja do jednej sekvencie → <strong>Transformer</strong></p>
+            </section>
+
+            <!-- Slide 22: Attention mechanizmus -->
+            <section>
+                <h2>Attention mechanizmus</h2>
+                <p><strong>Ako Transformer rozumie vzťahom?</strong></p>
+                <p>Príklad: "Nájdi červené auto"</p>
+                <ul>
+                    <li>Attention sa zameria na vizuálne patche vyzerajúce ako auto</li>
+                    <li>+ token 'červené'</li>
+                    <li>+ token 'nájdi' z príkazu</li>
+                </ul>
+                <p><strong>Dynamicky prepája inštrukcie, vizuálne dôkazy a sémantické koncepty</strong></p>
+            </section>
+
+            <!-- Slide 23: Časť 3 - Dátová stratégia -->
+            <section>
+                <h1>Časť 3</h1>
+                <h2>Hustota nad objemom</h2>
+            </section>
+
+            <!-- Slide 24: Multi-task Learning -->
+            <section>
+                <h2>Multi-task Learning</h2>
+                <p><strong>Kľúčový poznatok:</strong></p>
+                <p>"Nezáleží len na tom, koľko obrázkov model vidí, ale <strong>koľko sa z každého jedného naučí</strong>"</p>
+                <p><strong>Multi-task Learning:</strong> jeden model, mnoho úloh súčasne</p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/multi_task_transfer_curve.pdf" data-preview-link>Krivky multi-task transferového učenia</a></p>
+            </section>
+
+            <!-- Slide 24a: Multi-task Transfer Experiment -->
+            <section>
+                <h2>Multi-task Transfer Experiment</h2>
+                <p><strong>Experiment:</strong> Ako pomáhajú rôzne úlohy jedna druhej?</p>
+                
+                <p><strong>Tri modely trénované na:</strong></p>
+                <ul>
+                    <li><strong>Image-level:</strong> Len caption úlohy</li>
+                    <li><strong>Image-Region:</strong> Caption + detection úlohy</li>
+                    <li><strong>Image-Region-Pixel:</strong> Všetky úlohy</li>
+                </ul>
+
+                <p><strong>Výsledok:</strong> Model trénovaný na všetkých úlohách:</p>
+                <ul>
+                    <li>✅ Najlepší na detection a segmentation</li>
+                    <li>✅ Konkurenčný na captioning</li>
+                    <li>✅ Univerzálne zastupiteľné reprezentácie</li>
+                </ul>
+            </section>
+
+            <!-- Slide 25: Porovnanie paradigiem -->
+            <section>
+                <h2>Porovnanie paradigiem</h2>
+                <table>
+                    <tr>
+                        <th>Model</th>
+                        <th>Obrázky</th>
+                        <th>Anotácie/obrázok</th>
+                        <th>Celkom</th>
+                    </tr>
+                    <tr>
+                        <td>CLIP</td>
+                        <td>400M</td>
+                        <td>1</td>
+                        <td>~400M</td>
+                    </tr>
+                    <tr>
+                        <td>SAM</td>
+                        <td>11M</td>
+                        <td>~100</td>
+                        <td>~1B</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Florence-2</strong></td>
+                        <td><strong>126M</strong></td>
+                        <td><strong>~42</strong></td>
+                        <td><strong>5.4B</strong></td>
+                    </tr>
+                </table>
+            </section>
+
+            <!-- Slide 26: Dataset FLD-5B -->
+            <section>
+                <h2>Dataset FLD-5B</h2>
+                <p><strong>126 miliónov obrázkov</strong></p>
+                <p><strong>5.4 miliardy anotácií</strong></p>
+                <p>Pre každý obrázok:</p>
+                <ul>
+                    <li>Krátky popis (brief)</li>
+                    <li>Detailný popis (detailed)</li>
+                    <li>Veľmi detailný popis (more detailed)</li>
+                    <li>Bounding boxy pre objekty</li>
+                    <li>Segmentačné masky</li>
+                    <li>OCR text</li>
+                    <li>Phrase grounding</li>
+                </ul>
+            </section>
+
+            <!-- Slide 27: Typy anotácií - vizualizácia -->
+            <section>
+                <h2>Typy anotácií v datasete</h2>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/data_annotations.pdf" data-preview-link>Vizualizácia typov anotácií používaných pri tréningu</a></p>
+                <script>
+                    // Display the PDF when this slide is shown
+                </script>
+            </section>
+
+            <!-- Slide 28: Data Engine -->
+            <section>
+                <h2>Data Engine</h2>
+                <p><strong>Ako vytvoriť 5.4 miliardy anotácií?</strong></p>
+                <p>Iteratívny proces:</p>
+                <ol>
+                    <li>Špecializované modely vytvoria prvé anotácie</li>
+                    <li>Filtrovanie (odstránenie ~30% šumu)</li>
+                    <li>Trénovanie Florence-2</li>
+                    <li>Florence-2 zlepší anotácie</li>
+                    <li>Opakovať kým sa kvalita nezlepší</li>
+                </ol>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/data_pipeline.pdf" data-preview-link>Schéma data engine procesu</a></p>
+            </section>
+
+            <!-- Slide 28a: Typy anotácií v detaile -->
+            <section>
+                <h3>Typy anotácií</h3>
+                <p><strong>1. Text anotácie (500M):</strong></p>
+                <ul>
+                    <li>Brief: 7.95 avg tokenov (COCO-style)</li>
+                    <li>Detailed: 31.65 avg tokenov (4× dlhšie)</li>
+                    <li>More detailed: 70.53 avg tokenov (9× dlhšie)</li>
+                </ul>
+
+                <p><strong>2. Region-text páry (1.3B):</strong></p>
+                <ul>
+                    <li>5.42 regiónov/obrázok v priemere</li>
+                    <li>Frázové aj sentencové popisy</li>
+                </ul>
+
+                <p><strong>3. Text-phrase-region trojice (3.6B):</strong></p>
+                <ul>
+                    <li>Brief: 4.27 phrase-region párov</li>
+                    <li>Detailed: 10+ phrase-region párov</li>
+                </ul>
+            </section>
+
+            <!-- Slide 29: Špecializované modely -->
+            <section>
+                <h2>Špecializované modely</h2>
+                <p>Pre prvotné anotácie:</p>
+                <ul>
+                    <li><strong>SAM:</strong> segmentácia</li>
+                    <li><strong>OCR engines:</strong> rozpoznávanie textu</li>
+                    <li><strong>OWL-ViT, DINO:</strong> detekcia objektov</li>
+                    <li><strong>Caption modely:</strong> popisovanie</li>
+                </ul>
+            </section>
+
+            <!-- Slide 30: Časť 4 - Tréning -->
+            <section>
+                <h1>Časť 4</h1>
+                <h2>Jeden model, jedna chybová funkcia</h2>
+            </section>
+
+            <!-- Slide 30: Tradičný prístup -->
+            <section>
+                <h2>Tradičný prístup</h2>
+                <p>Každá úloha = vlastná loss function:</p>
+                <ul>
+                    <li>Detekcia: Focal loss, Smooth L1</li>
+                    <li>Segmentácia: Dice loss</li>
+                    <li>Klasifikácia: Cross-entropy</li>
+                    <li>Caption: Language modeling loss</li>
+                </ul>
+                <p><strong>Zložité na vyváženie a spoločný tréning</strong></p>
+            </section>
+
+            <!-- Slide 31: Florence-2 prístup -->
+            <section>
+                <h2>Florence-2 prístup</h2>
+                <p><strong>Radikálny krok:</strong></p>
+                <p>Všetky loss funkcie → <strong>Cross-Entropy Loss</strong></p>
+                <p>Jediná úloha: <strong>predpovedať ďalší token</strong></p>
+            </section>
+
+            <section style="font-size: 0.5em;">
+                <h2>Cross-Entropy Loss</h2>
+                <p>Matematicky:</p>
+                <p>\[\text{Loss} = - \sum_{i=1}^{|y|} \log P(y_i | y_{&lt;i}, x)\]</p>
+                <p>Kde:</p>
+                <ul>
+                    <li>$|y|$ = počet tokenov vo výstupe</li>
+                    <li>$y_i$ = i-ty token</li>
+                    <li>$y_{i}$ = všetky predchádzajúce tokeny</li>
+                </ul>
+                
+                <p><strong>Prečo logaritmus?</strong></p>
+                <ul>
+                    <li><strong>Numerická stabilita:</strong> $P(y_i)$ môže byť veľmi malé (napr. 0.0001)</li>
+                    <li><strong>Súčin → súčet:</strong> $\log(a \times b) = \log(a) + \log(b)$</li>
+                    <li><strong>Penalizácia chýb:</strong> $\log(0.1) = -2.3$, $\log(0.01) = -4.6$</li>
+                    <li><strong>Gradientová optimalizácia:</strong> derivácia logaritmu je jednoduchšia</li>
+                </ul>
+            </section>
+
+            <!-- Slide 33: Autoregresívna generácia -->
+            <section>
+                <h2>Autoregresívna generácia</h2>
+                <p><strong>Autoregressive Generation:</strong></p>
+                <ul>
+                    <li>Model generuje výstup token po tokene</li>
+                    <li>Každý nový token závisí od predchádzajúcich</li>
+                    <li>Presne ako ChatGPT alebo klávesnica na mobile</li>
+                </ul>
+            </section>
+
+            <!-- Slide 34: Príklady úloh -->
+            <section>
+                <h2>Príklady úloh</h2>
+                <p><strong>Popis regiónu:</strong></p>
+                <ul>
+                    <li>Vstup: Obrázok + "Popíš región &lt;loc_100&gt;&lt;loc_150&gt;&lt;loc_400&gt;&lt;loc_450&gt;"</li>
+                    <li>Výstup: "Hnedá mačka sediaca na stoličke"</li>
+                </ul>
+                <p><strong>Detekcia:</strong></p>
+                <ul>
+                    <li>Vstup: Obrázok + "Nájdi všetky mačky"</li>
+                    <li>Výstup: "mačka &lt;loc_100&gt;&lt;loc_150&gt;&lt;loc_400&gt;&lt;loc_450&gt;"</li>
+                </ul>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/dense_cap_1.png" data-preview-link>Príklady hustých popisov</a></p>
+            </section>
+
+            <!-- Slide 35: Visual Grounding -->
+            <section>
+                <h2>Visual Grounding</h2>
+                <p><strong>Visual Grounding / Referring Expression:</strong></p>
+                <ul>
+                    <li>Prepojiť textový popis s regiónom</li>
+                    <li>"Hnedá mačka vľavo" → súradnice</li>
+                    <li>Opačný proces: región → popis</li>
+                </ul>
+                <p>Všetko je generovanie textu + lokačných tokenov</p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/grounding_1.png" data-preview-link>Príklady visual grounding výsledkov</a></p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/seg_1.png" data-preview-link>Príklady segmentácie výsledkov</a></p>
+            </section>
+
+            <!-- Slide 35a: Popisovanie obrázkov -->
+            <section>
+                <h2>Popisovanie obrázkov</h2>
+                <p><strong>Prompt:</strong> Describe with a paragraph what is shown in the image.</p>
+                
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="flex: 1;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/cap_1.jpg" style="width: 100%; max-width: 200px;" alt="Gin & Tonic illustration">
+                    </div>
+                    <div style="flex: 2; font-size: 0.7em; text-align: left;">
+                        <p><em>The image is a hand-drawn illustration of a glass of gin and tonic. The glass is filled with ice cubes, lime slices, and a slice of lemon. There is a straw sticking out of the top of the glass. The background is a light green color with a grungy texture. On the right side of the image, there is a list of ingredients written in black ink. The text reads "Gin & Tonic" and "2oz gin, 5oz tonic water, 2-4 ice cubes lime slice for garnish".</em></p>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 20px; margin-top: 20px;">
+                    <div style="flex: 1;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/cap_2.jpg" style="width: 100%; max-width: 200px;" alt="Grocery store">
+                    </div>
+                    <div style="flex: 2; font-size: 0.7em; text-align: left;">
+                        <p><em>The image shows the interior of a grocery store with a large variety of fruits and vegetables on display. The store has a high ceiling with green and white striped awnings, and the floor is made of wood. There are rows of wooden crates filled with different types of fruits...</em></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 35b: Detekcia objektov -->
+            <section>
+                <h2>Detekcia objektov</h2>
+                <p><strong>Open Vocabulary Object Detection</strong></p>
+                
+                <div style="display: flex; gap: 30px; justify-content: center; align-items: center;">
+                    <div style="flex: 1; max-width: 400px;">
+                        <p style="font-size: 0.8em;"><strong>Prompt:</strong> Locate <span style="background: yellow;">Five Alive juice box</span> in the image.</p>
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/od_1.png" style="width: 100%; max-width: 350px;" alt="Object detection example 1">
+                    </div>
+                    <div style="flex: 1; max-width: 400px;">
+                        <p style="font-size: 0.8em;"><strong>Prompt:</strong> Locate <span style="background: yellow;">Chewbacca</span> in the image.</p>
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/od_2.png" style="width: 100%; max-width: 350px;" alt="Object detection example 2">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 35c: Referring Expression / Visual Grounding -->
+            <section>
+                <h2>Referring Expression / Visual Grounding</h2>
+                <p><strong>Prompt:</strong> Locate the phrases in the caption: {caption}</p>
+                
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/grounding_6.png" style="width: 100%; max-width: 300px;" alt="Grounding example 1">
+                    </div>
+                    <div style="flex: 1; font-size: 0.6em; text-align: left;">
+                        <p>The image shows a group of five cartoon monsters. On the left side, there is <span style="background: #00c6c5; color: black;">a brown monster¹</span> with horns and a big smile on its face. Next to it, there are two <span style="background: #49e5ab; color: black;">smaller monsters²</span>, one black and one green. <span style="background: #c3fea8; color: black;">The black monster³</span> has two large horns on its head and is standing in the center of the group...</p>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <div style="flex: 1;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/grounding_8.png" style="width: 100%; max-width: 300px;" alt="Grounding example 2">
+                    </div>
+                    <div style="flex: 1; font-size: 0.6em; text-align: left;">
+                        <p>The image shows a kitchen countertop with various kitchen items on it. On the left side of the countertop, there is a microscope with a black body and a white <span style="background: #00c6c5; color: black;">lens¹</span>. Next to the microscope, there are two bottles of <span style="background: #49e5ab; color: black;">condiments²</span>...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 35d: OCR a rozpoznávanie textu -->
+            <section>
+                <h2>OCR a rozpoznávanie textu</h2>
+                <p><strong>Prompt:</strong> What is the text in the image, with regions?</p>
+                
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/ocr_1.png" style="width: 100%; max-width: 300px;" alt="OCR example 1 - Recipe">
+                    </div>
+                    <div style="flex: 1; font-size: 0.5em; text-align: left;">
+                        <div style="line-height: 1.2;">
+                            <span style="background: #00c6c5; color: black;">Easy Stroganoff¹</span><br>
+                            <span style="background: #49e5ab; color: black;">Brown - 1 lb. ground beef in skillet²</span><br>
+                            <span style="background: #c3fea8; color: black;">Add - 1 can beef broth³</span><br>
+                            <span style="background: #ffe8ab; color: black;">1 can cream of mushroom soup⁴</span><br>
+                            <span style="background: #ffc182; color: black;">Cut in squares & 2dld to above -⁵</span><br>
+                            <span style="background: #ff917c; color: black;">1/ Boz pkg. cream cheese⁶</span><br>
+                            <span style="background: #ff6e9b; color: black;">Simmer - 20-30 min.⁷</span><br>
+                            <span style="background: #0676a8; color: black;">Serve over hotrice /noodles.⁸</span><br>
+                            <span style="background: #0bc0cc; color: black;">Vintage. Recipes/Easy-Stroganof⁹</span><br>
+                            <span style="background: #9bfecb; color: black;">Charlotte Miller¹⁰</span><br>
+                            <span style="background: #ffe19e; color: black;">Tulsa¹¹</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 15px;">
+                    <div style="flex: 1;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/ocr_4.png" style="width: 100%; max-width: 300px;" alt="OCR example 2 - Menu">
+                    </div>
+                    <div style="flex: 1; font-size: 0.5em; text-align: left;">
+                        <div style="line-height: 1.2;">
+                            <span style="background: #00c6c5; color: black;">COFFEE+TEA¹</span><br>
+                            <span style="background: #49e5ab; color: black;">BLENDED²</span><br>
+                            <span style="background: #c3fea8; color: black;">$1.69/$1.89/$2.09³</span><br>
+                            <span style="background: #ffe8ab; color: black;">$3.49/$3.99⁴</span><br>
+                            <span style="background: #ffc182; color: black;">Hot Coffee/Tea⁵</span><br>
+                            <span style="background: #ff917c; color: black;">Taro⁶</span><br>
+                            <span style="background: #ff6e9b; color: black;">Iced Coffee/ Tea⁷</span><br>
+                            <span style="background: #0676a8; color: black;">Mango⁸</span><br>
+                            <span style="background: #0bc0cc; color: black;">Hot Chocolate⁹</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Slide 35e: Dense Region Caption -->
+            <section>
+                <h2>Dense Region Caption</h2>
+                <p><strong>Popisovanie každého regiónu v obrázku</strong></p>
+                
+                <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 20px;">
+                    <div style="flex: 1; max-width: 300px;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/dense_cap_1.png" style="width: 100%;" alt="Dense caption example 1">
+                    </div>
+                    <div style="flex: 1; max-width: 350px;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/dense_cap_2.png" style="width: 100%;" alt="Dense caption example 2">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 20px; justify-content: center; margin-bottom: 20px;">
+                    <div style="flex: 1; max-width: 300px;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/dense_cap_3.png" style="width: 100%;" alt="Dense caption example 3">
+                    </div>
+                    <div style="flex: 1; max-width: 250px;">
+                        <img src="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/dense_cap_4.png" style="width: 100%;" alt="Dense caption example 4">
+                    </div>
+                </div>
+                
+                <p style="font-size: 0.8em; font-style: italic;">Model automaticky deteguje regióny a popisuje každý jeden zvlášť</p>
+            </section>
+
+            <!-- Slide 35f: Segmentácia -->
+            <section>
+                <h2>Segmentácia</h2>
+                <p><strong>Referring Expression Segmentation:</strong> Presná segmentácia objektov</p>
+                <ul>
+                    <li><strong>Polygon representation:</strong> Súradnice hrán objektu</li>
+                    <li><strong>Pixel-level precision:</strong> Presnosť na úrovni pixelov</li>
+                    <li><strong>Text-guided segmentation:</strong> Riadená textom</li>
+                </ul>
+                <p><strong>RefCOCO RES val:</strong> 80.5 mIoU</p>
+                <p style="font-size: 0.8em; color: #666;"><em>mIoU (mean Intersection over Union) = priemerná plocha prekryvu medzi predikciou a skutočnosťou / plocha zjednotenia</em></p>
+                <p><strong>Prvý foundation model s touto schopnosťou!</strong></p>
+            </section>
+
+            <!-- Slide 35f: Multi-task vs Specialist models -->
+            <section>
+                <h2>Multi-task vs Špecializované modely</h2>
+                <p><strong>Tradičný prístup:</strong> Jeden model = jedna úloha</p>
+                <ul>
+                    <li>CLIP: Image-text similarity</li>
+                    <li>DETR: Object detection</li>
+                    <li>SAM: Segmentation (s promptom)</li>
+                </ul>
+                <p><strong>Florence-2:</strong> Jeden model = všetky úlohy</p>
+                <ul>
+                    <li>Caption + Detection + Grounding + OCR + Segmentation</li>
+                    <li>Kompaktnejší a efektívnejší</li>
+                    <li>Zdieľané znalosti medzi úlohami</li>
+                </ul>
+            </section>
+
+            <!-- Slide 36: Bitter Lesson -->
+            <section>
+                <h2>The Bitter Lesson</h2>
+                <p><strong>"Trpká lekcia" v AI:</strong></p>
+                <p>Jednoduché, škálovateľné metódy</p>
+                <p>+</p>
+                <p>Veľké množstvo dát a výpočtovej sily</p>
+                <p>=</p>
+                <p><strong>Lepšie výsledky ako zložité riešenia</strong></p>
+                <p><em>Florence-2 je dokonalým príkladom</em></p>
+            </section>
+
+            <!-- Slide 37: Výsledky -->
+            <section>
+                <h1>Výsledky</h1>
+            </section>
+
+            <!-- Slide 38: Zero-shot vs Fine-tuning -->
+            <section>
+                <h2>Dôležité pojmy</h2>
+                <p><strong>Zero-shot:</strong></p>
+                <ul>
+                    <li>Model rieši úlohu, na ktorej sa netrénoval</li>
+                    <li>Test skutočného "pochopenia"</li>
+                </ul>
+                <p><strong>Fine-tuning:</strong></p>
+                <ul>
+                    <li>Dodatočný tréning na špecifických dátach</li>
+                    <li>Zlepšenie výkonu v konkrétnej úlohe</li>
+                </ul>
+            </section>
+
+            <!-- Slide 39: Hlavný výsledok -->
+            <section>
+                <h2>Hlavný výsledok</h2>
+                <p><strong>COCO Caption benchmark:</strong></p>
+                <p style="font-size: 0.8em; color: #666;"><em>COCO = Microsoft Common Objects in Context dataset, štandardný benchmark pre popisovanie obrázkov s 5 ľudskými popismi na obrázok</em></p>
+                <table>
+                    <tr>
+                        <th>Model</th>
+                        <th>Parametre</th>
+                        <th>CIDEr skóre</th>
+                    </tr>
+                    <tr>
+                        <td>Flamingo</td>
+                        <td>80B</td>
+                        <td>84.3</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Florence-2-L</strong></td>
+                        <td><strong>770M</strong></td>
+                        <td><strong>135.6</strong></td>
+                    </tr>
+                </table>
+                <p><strong>100× menší, dramaticky lepší</strong></p>
+            </section>
+
+            <!-- Slide 40: CIDEr metrika -->
+            <section>
+                <h2>CIDEr metrika</h2>
+                <p><strong>CIDEr (Consensus-based Image Description Evaluation):</strong></p>
+                <ul>
+                    <li>Meria podobnosť strojového popisu s ľudskými popismi</li>
+                    <li>Vyššie číslo = lepšie</li>
+                    <li>Štandardná metrika pre caption úlohy</li>
+                </ul>
+            </section>
+
+            <!-- Slide 41: Zero-shot výsledky -->
+            <section>
+                <h2>Zero-shot výsledky</h2>
+                <table>
+                    <tr>
+                        <th>Úloha</th>
+                        <th>Zlepšenie</th>
+                    </tr>
+                    <tr>
+                        <td>Visual grounding</td>
+                        <td>+5.7 bodov</td>
+                    </tr>
+                    <tr>
+                        <td>RefCOCO</td>
+                        <td>+4-8% absolútne</td>
+                    </tr>
+                    <tr>
+                        <td>OCR</td>
+                        <td>82.5% (lepšie ako špecializované)</td>
+                    </tr>
+                </table>
+                <p><strong>Nové rekordy v zero-shot</strong></p>
+            </section>
+
+            <!-- Slide 42: Fine-tuned výsledky -->
+            <!-- Slide 42: Fine-tuned výsledky -->
+            <section>
+                <h2>Fine-tuned výsledky</h2>
+                <table>
+                    <tr><th>Úloha</th><th>SOTA</th><th>Florence-2</th></tr>
+                    <tr><td>RefCOCO</td><td>89.3</td><td>92.4</td></tr>
+                    <tr><td>RefCOCO+</td><td>83.9</td><td>86.8</td></tr>
+                    <tr><td>RefCOCOg</td><td>84.7</td><td>86.4</td></tr>
+                </table>
+                <p><strong>Nové state-of-the-art</strong> v referring expression comprehension</p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/grounding_1.png" data-preview-link>Príklady visual grounding výsledkov</a></p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/appendix/pred_results/seg_1.png" data-preview-link>Príklady segmentácie výsledkov</a></p>
+            </section>
+
+            <!-- Slide 42a: Konkrétne príklady schopností -->
+            <section>
+                <h2>Konkrétne príklady schopností</h2>
+                <p><strong>1. Image Captioning na COCO:</strong></p>
+                <ul>
+                    <li>Zero-shot: 135.6 CIDEr (vs Flamingo 80B: 84.3)</li>
+                    <li>Fine-tuned: 143.3 CIDEr</li>
+                </ul>
+                
+                <p><strong>2. Object Detection (zero-shot):</strong></p>
+                <ul>
+                    <li>COCO detection: 37.5 mAP</li>
+                    <li>Bez akéhokoľvek detection-špecifického tréningu!</li>
+                </ul>
+
+                <p><strong>3. TextVQA (bez externého OCR):</strong></p>
+                <ul>
+                    <li>73.5% accuracy - nový rekord!</li>
+                </ul>
+            </section>
+
+            <!-- Slide 42b: Downstream úlohy -->
+            <section>
+                <h2>Downstream úlohy</h2>
+                <p style="font-size: 0.8em; color: #666; margin-bottom: 15px;"><em>Downstream úlohy = špecifické úlohy, na ktoré sa model dodatočne fine-tunuje po základnom tréningu. Test univerzálnosti naučených reprezentácií.</em></p>
+                <p><strong>Florence-2 ako backbone pre downstream úlohy:</strong></p>
+                
+                <p><strong>COCO Object Detection (Mask R-CNN):</strong></p>
+                <ul>
+                    <li>+6.9 AP vs ImageNet pretrained</li>
+                    <li>4× rýchlejšia konvergencia</li>
+                    <li>53.6 AP box, 46.4 AP mask</li>
+                </ul>
+                <p style="font-size: 0.7em; color: #666;"><em>AP (Average Precision) = priemerná presnosť detekcie objektov cez rôzne prahy IoU (Intersection over Union)</em></p>
+
+                <p><strong>ADE20K Semantic Segmentation (UperNet):</strong></p>
+                <ul>
+                    <li>+5.9 mIoU vs ImageNet pretrained</li>
+                    <li>54.9 mIoU single-scale</li>
+                </ul>
+
+                <p><strong>Kľúčový insight:</strong> Univerzálne reprezentácie sú lepšie ako task-specific!</p>
+            </section>
+
+            <!-- Slide 43: Časť 6 - Praktický dopad -->
+            <section>
+                <h2>Čo to znamená pre CV</h2>
+                <p><strong>Zmena paradigmy:</strong></p>
+                <ul>
+                    <li>Computer Vision → NLP problém</li>
+                    <li>Špecializované architektúry → Univerzálny transformer</li>
+                    <li>Zložité loss funkcie → Cross-entropy</li>
+                    <li>Mnoho modelov → Jeden model</li>
+                </ul>
+                <p><strong>Prvý skutočne "foundational" model pre CV</strong></p>
+            </section>
+
+            <!-- Slide 50: Dataset FLD-5B - detail -->
+                        <!-- Slide 50: Dataset FLD-5B - detail -->
+            <section>
+                <h2>Dataset FLD-5B - detail</h2>
+                <table>
+                    <tr>
+                        <th>Typ anotácie</th>
+                        <th>Počet</th>
+                        <th>Priemer/obrázok</th>
+                    </tr>
+                    <tr>
+                        <td>Text</td>
+                        <td>500M</td>
+                        <td>~4</td>
+                    </tr>
+                    <tr>
+                        <td>Region-text</td>
+                        <td>1.3B</td>
+                        <td>~10</td>
+                    </tr>
+                    <tr>
+                        <td>Text-phrase-region</td>
+                        <td>3.6B</td>
+                        <td>~28</td>
+                    </tr>
+                </table>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/spatial_coverage/spatial_coverage_area_full_stats.pdf" data-preview-link>Analýza priestorovej distribúcie anotácií</a></p>
+                <p style="font-size: 0.7em; color: #666; margin-top: 10px;"><em>Distribúcia veľkostí bounding boxov: ukazuje, že dataset pokrýva objekty všetkých veľkostí - od malých detailov po veľké objekty. Viac malých boxov = lepšie rozpoznávanie drobných objektov.</em></p>
+            </section>
+
+            <!-- Slide 50a: Interpretácia priestorovej distribúcie -->
+            <section>
+                <h2>Priestorová distribúcia anotácií</h2>
+                <p><strong>Čo ukazuje graf distribúcie veľkostí:</strong></p>
+                <ul style="font-size: 0.9em;">
+                    <li><strong>X-os:</strong> Veľkosť bounding boxov (plocha v % obrázka)</li>
+                    <li><strong>Y-os:</strong> Počet anotácií (logaritmická škála)</li>
+                    <li><strong>Exponenciálny pokles:</strong> Veľa malých objektov, menej veľkých</li>
+                </ul>
+                
+                <p><strong>Prečo je to dôležité:</strong></p>
+                <ul style="font-size: 0.9em;">
+                    <li>Realistická distribúcia - ako v reálnom svete</li>
+                    <li>Model sa naučí rozpoznávať objekty všetkých veľkostí</li>
+                    <li>Vyvážené pokrytie od detailov po celé scény</li>
+                    <li>Zabezpečuje robustnosť modelu</li>
+                </ul>
+            </section>
+
+            <!-- Slide 51: Tréningové detaily -->
+            <section>
+                <h2>Tréningové detaily</h2>
+                <ul>
+                    <li><strong>Batch size:</strong> 2048 (base), 3072 (large)</li>
+                    <li><strong>Veľkosť obrázka:</strong> 384×384 → 768×768</li>
+                    <li><strong>Optimizer:</strong> AdamW</li>
+                    <li><strong>Learning rate:</strong> 1e-4 (base), 1e-5 (large)</li>
+                    <li><strong>Tréningové vzorky:</strong> 3B + 0.5B high-res</li>
+                </ul>
+            </section>
+
+            <!-- Slide 52: Porovnanie s inými modelmi -->
+            <section>
+                <h2>Porovnanie s inými modelmi</h2>
+                <table>
+                    <tr>
+                        <th>Model</th>
+                        <th>Parametre</th>
+                        <th>Úlohy</th>
+                        <th>Zero-shot</th>
+                    </tr>
+                    <tr>
+                        <td>SAM</td>
+                        <td>?</td>
+                        <td>Segmentácia</td>
+                        <td>Áno*</td>
+                    </tr>
+                    <tr>
+                        <td>CLIP</td>
+                        <td>400M</td>
+                        <td>Image-text</td>
+                        <td>Áno</td>
+                    </tr>
+                    <tr>
+                        <td>Flamingo</td>
+                        <td>80B</td>
+                        <td>Viaceré</td>
+                        <td>Áno</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Florence-2</strong></td>
+                        <td><strong>770M</strong></td>
+                        <td><strong>Všetky</strong></td>
+                        <td><strong>Áno</strong></td>
+                    </tr>
+                </table>
+                <p class="small">*SAM vyžaduje špecifické promptovanie</p>
+            </section>
+
+            <!-- Slide 53: Architektúra - detail -->
+            <section>
+                <h2>Architektúra - detail</h2>
+                <p><strong>Florence-2-Base (232M):</strong></p>
+                <ul>
+                    <li>Vision encoder (DaViT): 90M</li>
+                    <li>Encoder-decoder: 140M</li>
+                    <li>6 encoder layers, 6 decoder layers</li>
+                    <li>Dimension: 768</li>
+                </ul>
+                <p><strong>Florence-2-Large (771M):</strong></p>
+                <ul>
+                    <li>Vision encoder (DaViT): 360M</li>
+                    <li>Encoder-decoder: 410M</li>
+                    <li>12 encoder layers, 12 decoder layers</li>
+                    <li>Dimension: 1024</li>
+                </ul>
+            </section>
+
+            <!-- Slide 54: Downstream tasks -->
+            <section>
+                <h2>Downstream tasks</h2>
+                <p><strong>Florence-2 ako backbone:</strong></p>
+                <ul>
+                    <li><strong>COCO detection:</strong> Mask R-CNN, DINO</li>
+                    <li><strong>ADE20K segmentation:</strong> UperNet</li>
+                    <li>Výrazné zlepšenie vs ImageNet pre-training</li>
+                    <li>4× rýchlejšia konvergencia</li>
+                </ul>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/od_dino.pdf" data-preview-link>Výsledky object detection s DINO</a></p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/od_mrcnn.pdf" data-preview-link>Výsledky object detection s Mask R-CNN</a></p>
+                <p><a href="https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/seg.pdf" data-preview-link>Výsledky segmentácie</a></p>
+            </section>
+
+            <!-- Slide 55: Obmedzenia -->
+            <section>
+                <h2>Obmedzenia</h2>
+                <p><strong>Čo Florence-2 nevie (zatiaľ):</strong></p>
+                <ul>
+                    <li>Video analýza</li>
+                    <li>3D pochopenie</li>
+                    <li>Temporálne vzťahy</li>
+                    <li>Autoregresívna generácia je pomalšia</li>
+                </ul>
+                <p><strong>Diskrétna mriežka:</strong> obmedzuje pixel-perfect presnosť</p>
+            </section>
+
+            <!-- Slide 56: Budúce smery -->
+            <section>
+                <h2>Budúce smery výskumu</h2>
+                <ul>
+                    <li>Rozšírenie na video</li>
+                    <li>3D videnie s tokenmi</li>
+                    <li>Ešte hustejšie anotácie</li>
+                    <li>Cross-modal generácia</li>
+                    <li>Ešte efektívnejšie modely</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>Zdroje a odkazy</h2>
+                <ul>
+                    <li><strong>Paper:</strong> arxiv.org/abs/2311.06242</li>
+                    <li><strong>Model:</strong> huggingface.co/microsoft/Florence-2-large</li>
+                    <li><strong>Demo:</strong> huggingface.co/spaces/SkalskiP/better-florence-2</li>
+                    <li><strong>GitHub:</strong> Community implementations</li>
+                </ul>
+            </section>
+
+            <!-- Slide 60: Kľúčové ponaučenia -->
+            <section>
+                <h2>Kľúčové ponaučenia</h2>
+                <ol>
+                    <li><strong>Simplicita víťazí:</strong> Jednoduchá metóda + kvalitné dáta</li>
+                    <li><strong>Unifikácia je kľúčová:</strong> Jedna architektúra, jedna loss</li>
+                    <li><strong>Hustota > objem:</strong> 40 anotácií/obrázok > miliardy obrázkov</li>
+                    <li><strong>Tokenizácia:</strong> Všetko môže byť sekvencia</li>
+                    <li><strong>Škálovateľnosť:</strong> Malé modely môžu byť výkonné</li>
+                </ol>
+            </section>
+
+            <!-- Slide 63: Ďakujem -->
+            <section data-background-color="#2c3e50">
+                <h1 style="color: white;">Ďakujem za pozornosť</h1>
+                <h3 style="color: white;">Otázky?</h3>
+                <br>
+                <p style="color: white;">
+                    <small>
+                        Paper: arxiv.org/abs/2311.06242<br>
+                        Model: huggingface.co/microsoft/Florence-2-large
+                    </small>
+                </p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.3.1/plugin/math/math.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <script>
+        Reveal.initialize({
+            hash: true,
+            controls: true,
+            progress: "c/t",
+            center:  true,
+            slideNumber: 'c/t',
+            transition: 'slide',
+            plugins: [RevealMath.KaTeX],
+            width: 1280,
+            height: 720,
+            margin: 0.1,
+            minScale: 0.2,
+            maxScale: 1.5,
+            pdfMaxPagesPerSlide: 1
+        });
+    </script>
+
+    <script>
+        // PDF to Image conversion function
+        async function convertPdfToImage(pdfPath, maxWidth = 1200, scale = 2.0) {
+            try {
+                // Set worker source for PDF.js
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                
+                console.log(`Converting PDF: ${pdfPath}`);
+                
+                // Load the PDF
+                const loadingTask = pdfjsLib.getDocument(pdfPath);
+                const pdf = await loadingTask.promise;
+                
+                const images = [];
+                
+                // Convert each page
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    const page = await pdf.getPage(pageNum);
+                    
+                    // Calculate viewport with scale
+                    const viewport = page.getViewport({ scale: scale });
+                    
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    
+                    // Set canvas dimensions
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    // Render page to canvas
+                    const renderContext = {
+                        canvasContext: context,
+                        viewport: viewport
+                    };
+                    
+                    await page.render(renderContext).promise;
+                    
+                    // Convert canvas to image data URL
+                    const imageDataUrl = canvas.toDataURL('image/png', 0.9);
+                    
+                    // If maxWidth is specified and image is wider, resize
+                    if (maxWidth && canvas.width > maxWidth) {
+                        const resizedCanvas = document.createElement('canvas');
+                        const resizedContext = resizedCanvas.getContext('2d');
+                        
+                        const ratio = maxWidth / canvas.width;
+                        resizedCanvas.width = maxWidth;
+                        resizedCanvas.height = canvas.height * ratio;
+                        
+                        resizedContext.drawImage(canvas, 0, 0, resizedCanvas.width, resizedCanvas.height);
+                        images.push(resizedCanvas.toDataURL('image/png', 0.9));
+                    } else {
+                        images.push(imageDataUrl);
+                    }
+                    
+                    console.log(`Converted page ${pageNum}/${pdf.numPages}`);
+                }
+                
+                console.log(`Successfully converted ${pdf.numPages} page(s)`);
+                return images;
+                
+            } catch (error) {
+                console.error('Error converting PDF:', error);
+                throw error;
+            }
+        }
+
+        // Helper function to display converted image in a slide
+        async function displayPdfAsImage(pdfPath, targetElementId, maxWidth = 1200, pageNumber = 1) {
+            try {
+                const images = await convertPdfToImage(pdfPath, maxWidth);
+                
+                if (images.length >= pageNumber) {
+                    const targetElement = document.getElementById(targetElementId);
+                    if (targetElement) {
+                        targetElement.innerHTML = `
+                            <img src="${images[pageNumber - 1]}" 
+                                 alt="PDF Page ${pageNumber}" 
+                                 data-preview-image="${images[pageNumber - 1]}">
+                        `;
+                    }
+                } else {
+                    console.error(`Page ${pageNumber} not found in PDF`);
+                }
+            } catch (error) {
+                console.error('Error displaying PDF as image:', error);
+                const targetElement = document.getElementById(targetElementId);
+                if (targetElement) {
+                    targetElement.innerHTML = `
+                        <p>Error loading PDF: ${error.message}</p>
+                        <a href="${pdfPath}" target="_blank">Open PDF in new window</a>
+                    `;
+                }
+            }
+        }
+
+        // Example usage:
+        // convertPdfToImage('https://raw.githubusercontent.com/hpietukhin/uni/master/APV/figures/data_annotations.pdf', 1200).then(images => {
+        //     console.log('Converted images:', images);
+        // });
+    </script>
+</body>
+</html>
